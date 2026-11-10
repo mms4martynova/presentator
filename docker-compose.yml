@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: presentator
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/presentator
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_DIR: /data/storage
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - storage:/data/storage
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./backend
+    command: rq worker presentations --url redis://redis:6379/0
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/presentator
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_DIR: /data/storage
+    depends_on:
+      - api
+    volumes:
+      - storage:/data/storage
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  storage:
