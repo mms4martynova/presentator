@@ -183,3 +183,7 @@ class RecommendationOut(BaseModel):
 class MeOut(BaseModel):
     id: int
     name: str
+
+
+class ErrorOut(BaseModel):
+    detail: str

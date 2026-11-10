@@ -15,7 +15,7 @@ def _pptx_bytes() -> bytes:
 
 def _create_template(client):
     response = client.post(
-        "/templates",
+        "/api/v1/templates",
         data={"name": "Корпоративный"},
         files={"file": ("brand.pptx", _pptx_bytes(), PPTX_MEDIA)},
     )
@@ -28,7 +28,7 @@ def test_version_preview_returns_pdf(client, monkeypatch):
     template = _create_template(client)
     version_id = template["versions"][0]["id"]
 
-    response = client.get(f"/templates/{template['id']}/versions/{version_id}/preview")
+    response = client.get(f"/api/v1/templates/{template['id']}/versions/{version_id}/preview")
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -45,7 +45,7 @@ def test_preview_reports_unavailable_converter(client, monkeypatch):
     template = _create_template(client)
     version_id = template["versions"][0]["id"]
 
-    response = client.get(f"/templates/{template['id']}/versions/{version_id}/preview")
+    response = client.get(f"/api/v1/templates/{template['id']}/versions/{version_id}/preview")
 
     assert response.status_code == 503
     assert "LibreOffice" in response.json()["detail"]
@@ -55,6 +55,6 @@ def test_preview_unknown_version_is_404(client, monkeypatch):
     monkeypatch.setattr(services, "pptx_to_pdf", lambda data: b"%PDF")
     template = _create_template(client)
 
-    response = client.get(f"/templates/{template['id']}/versions/999999/preview")
+    response = client.get(f"/api/v1/templates/{template['id']}/versions/999999/preview")
 
     assert response.status_code == 404

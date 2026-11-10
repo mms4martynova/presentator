@@ -17,7 +17,7 @@ from app.schemas import RecommendationOut, SlideSpec, TaskCreate
 from app.security import get_current_user
 from app.services import get_owned_task, submit_task, validation_message
 
-router = APIRouter(tags=["MCP"])
+router = APIRouter(prefix="/api/v1", tags=["MCP"])
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_INFO = {"name": "presentator", "version": "1.0.0"}
@@ -203,7 +203,22 @@ class _UnknownMethod(Exception):
 # ─── Single endpoint: POST /mcp ───────────────────────────────────────────
 
 
-@router.post("/mcp", summary="MCP-сервер (Streamable HTTP)")
+@router.post(
+    "/mcp",
+    summary="MCP-сервер (Streamable HTTP)",
+    description=(
+        "Единая точка входа для MCP-клиентов. Реализует JSON-RPC 2.0 поверх HTTP.\n\n"
+        "**Поддерживаемые методы:**\n"
+        "- `initialize` — создание сессии, возвращает `Mcp-Session-Id` в заголовке\n"
+        "- `notifications/initialized` — подтверждение инициализации\n"
+        "- `tools/list` — список доступных инструментов\n"
+        "- `tools/call` — вызов инструмента\n"
+        "- `ping` — проверка соединения\n"
+        "- `logging/setLevel` — установка уровня логирования\n\n"
+        "Если заголовок `Accept` содержит `text/event-stream`, ответ возвращается\n"
+        "в формате SSE (Server-Sent Events)."
+    ),
+)
 async def mcp_endpoint(
     request: Request,
     accept: str | None = Header(default=None, alias="Accept"),
@@ -284,7 +299,14 @@ async def mcp_endpoint(
     )
 
 
-@router.get("/mcp", summary="MCP SSE-stream (server-to-client notifications)")
+@router.get(
+    "/mcp",
+    summary="MCP SSE-stream (server-to-client notifications)",
+    description=(
+        "Открывает SSE-стрим для получения server-to-client уведомлений.\n"
+        "Требует валидный `Mcp-Session-Id` в заголовке."
+    ),
+)
 async def mcp_sse_stream(
     mcp_session_id: str | None = Header(default=None, alias="Mcp-Session-Id"),
     user: User = Depends(get_current_user),
@@ -305,7 +327,11 @@ async def mcp_sse_stream(
     return StreamingResponse(heartbeat(), media_type="text/event-stream")
 
 
-@router.delete("/mcp", summary="Завершить MCP-сессию")
+@router.delete(
+    "/mcp",
+    summary="Завершить MCP-сессию",
+    description="Удаляет сессию по `Mcp-Session-Id`. После этого все запросы с этим ID будут отклонены.",
+)
 async def mcp_close_session(
     mcp_session_id: str | None = Header(default=None, alias="Mcp-Session-Id"),
     user: User = Depends(get_current_user),

@@ -1,11 +1,14 @@
 import hashlib
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.security import APIKeyHeader
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import User
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False, description="API-ключ пользователя")
 
 
 def hash_api_key(api_key: str) -> str:
@@ -13,7 +16,7 @@ def hash_api_key(api_key: str) -> str:
 
 
 def get_current_user(
-    x_api_key: str | None = Header(default=None),
+    x_api_key: str | None = Depends(api_key_header),
     db: Session = Depends(get_db),
 ) -> User:
     if not x_api_key:
