@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, downloadResult, downloadPdfResult } from '../api.js'
+import { api, downloadResult, downloadPdfResult, getPreviewBlob } from '../api.js'
+import PreviewDialog from '../components/PreviewDialog.jsx'
 import RebuildDialog from '../components/RebuildDialog.jsx'
 import StatusBadge from '../components/StatusBadge.jsx'
 import { formatDate, isActiveStatus, SLIDE_TYPE_LABELS } from '../labels.js'
@@ -12,6 +13,7 @@ export default function TaskPage() {
   const [error, setError] = useState('')
   const [downloadError, setDownloadError] = useState('')
   const [rebuilding, setRebuilding] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
 
   const load = useCallback(() => {
     api
@@ -95,6 +97,14 @@ export default function TaskPage() {
             type="button"
             className="btn btn-secondary"
             disabled={!task.has_pdf}
+            onClick={() => setPreviewing(true)}
+          >
+            Предпросмотр
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={!task.has_pdf}
             onClick={() => download('pdf')}
           >
             Скачать PDF
@@ -170,6 +180,14 @@ export default function TaskPage() {
           task={task}
           onClose={() => setRebuilding(false)}
           onRebuilt={(rebuilt) => navigate(`/tasks/${rebuilt.id}`)}
+        />
+      )}
+
+      {previewing && task._pdf_key && (
+        <PreviewDialog
+          title={`Предпросмотр: ${task.title}`}
+          loadBlob={() => getPreviewBlob(task._pdf_key)}
+          onClose={() => setPreviewing(false)}
         />
       )}
     </section>

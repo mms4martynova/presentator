@@ -206,3 +206,11 @@ export async function downloadPdfResult(taskPdfKey, title) {
   const safeName = title.replace(/[\\/:*?"<>|]/g, '_')
   await downloadBlob(taskPdfKey, `${safeName}.pdf`)
 }
+
+export async function getPreviewBlob(storageKey) {
+  const { data, error } = await supabase.storage
+    .from('presentations')
+    .download(storageKey)
+  if (error) throw new ApiError('Не удалось загрузить файл для предпросмотра', error.status || 500)
+  return data
+}

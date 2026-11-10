@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api.js'
 
-export default function TemplatePreviewDialog({ templateId, version, onClose }) {
-  const [pdfUrl, setPdfUrl] = useState(null)
+export default function PreviewDialog({ title, loadBlob, onClose }) {
+  const [url, setUrl] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -12,34 +11,33 @@ export default function TemplatePreviewDialog({ templateId, version, onClose }) 
   }, [onClose])
 
   useEffect(() => {
-    let url = null
+    let blobUrl = null
     let cancelled = false
-    api
-      .getTemplateVersionPreview(templateId, version.id)
+    loadBlob()
       .then((blob) => {
         if (cancelled) return
-        url = URL.createObjectURL(blob)
-        setPdfUrl(url)
+        blobUrl = URL.createObjectURL(blob)
+        setUrl(blobUrl)
       })
       .catch((err) => !cancelled && setError(err.message))
     return () => {
       cancelled = true
-      if (url) URL.revokeObjectURL(url)
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
     }
-  }, [templateId, version.id])
+  }, [loadBlob])
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal modal-wide card fade-in" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="page-title-row">
-          <h2 className="subtitle">Версия {version.version}</h2>
+          <h2 className="subtitle">{title}</h2>
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Закрыть
           </button>
         </div>
         {error && <p className="alert alert-error">{error}</p>}
-        {!error && !pdfUrl && <p className="muted">Готовим предпросмотр…</p>}
-        {pdfUrl && <iframe className="preview-frame" src={pdfUrl} title="Предпросмотр шаблона" />}
+        {!error && !url && <p className="muted">Готовим предпросмотр…</p>}
+        {url && <iframe className="preview-frame" src={url} title={title} />}
       </div>
     </div>
   )
