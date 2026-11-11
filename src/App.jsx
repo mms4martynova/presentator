@@ -7,6 +7,8 @@ import TasksPage from './pages/TasksPage.jsx'
 import TaskPage from './pages/TaskPage.jsx'
 import TemplatesPage from './pages/TemplatesPage.jsx'
 import TemplatePage from './pages/TemplatePage.jsx'
+import CorporateTemplatesPage from './pages/CorporateTemplatesPage.jsx'
+import CorporateTemplatePage from './pages/CorporateTemplatePage.jsx'
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -30,6 +32,8 @@ export default function App() {
         <Route path="tasks/:taskId" element={<TaskPage />} />
         <Route path="templates" element={<TemplatesPage />} />
         <Route path="templates/:templateId" element={<TemplatePage />} />
+        <Route path="corporate-templates" element={<CorporateTemplatesPage />} />
+        <Route path="corporate-templates/:templateId" element={<CorporateTemplatePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -28,6 +28,13 @@ const THEMES = {
   },
 }
 
+export const DEFAULT_LAYOUT = { titleX: 0.7, titleY: 0.3, titleW: 11.6, contentX: 0.8, contentY: 1.4, contentW: 11.2 }
+
+export function getThemeByKey(key) {
+  const t = THEMES[key] || THEMES.default
+  return { name: t.name, colors: t.colors, font: t.font, headingFont: t.font, layout: DEFAULT_LAYOUT }
+}
+
 export function getThemes() {
   const descriptions = {
     default: 'Синие акценты, светлый фон — универсальный выбор',
@@ -53,9 +60,8 @@ function bulletFontSize(items) {
   return 20
 }
 
-export async function buildPptx(title, slides, themeKey) {
+export async function buildPptx(title, slides, theme) {
   const visualAdvisor = slides.some((slide) => slide.visualAdvisor)
-  const theme = THEMES[visualAdvisor ? 'corporate' : themeKey] || THEMES.default
   const c = theme.colors
   const pres = new pptxgen()
   pres.layout = 'LAYOUT_WIDE'
@@ -78,13 +84,13 @@ export async function buildPptx(title, slides, themeKey) {
     titleSlide.addShape('rect', { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: c.primary, transparency: 88 }, line: { color: c.primary, transparency: 100 } })
     titleSlide.addText(title, {
       x: 1.1, y: 2.55, w: 11.1, h: 1.3,
-      fontSize: 36, bold: true, color: c.dark, fontFace: theme.font, align: 'center',
+      fontSize: 36, bold: true, color: c.dark, fontFace: theme.headingFont, align: 'center',
     })
     addLogo(titleSlide, theme)
   } else {
     titleSlide.addText(title, {
       x: 0.8, y: 2.5, w: 11.4, h: 1.5,
-      fontSize: 36, bold: true, color: 'FFFFFF', fontFace: theme.font, align: 'left',
+      fontSize: 36, bold: true, color: 'FFFFFF', fontFace: theme.headingFont, align: 'left',
     })
   }
   titleSlide.addShape('rect', {
@@ -114,13 +120,14 @@ function addSlide(pres, spec, theme, visualAdvisor = false, pageNumber = 1) {
     slide.addShape('rect', { x: 0, y: 0, w: 13.333, h: 7.5, fill: { color: theme.colors.primary, transparency: 92 }, line: { color: theme.colors.primary, transparency: 100 } })
     addLogo(slide, theme)
   }
+  const { titleX, titleY, titleW } = theme.layout
   slide.addText(spec.title, {
-    x: 0.7, y: 0.3, w: 11.6, h: 0.9,
-    fontSize: 26, bold: true, color: c.dark, fontFace: theme.font, align: 'left',
+    x: titleX, y: titleY, w: titleW, h: 0.9,
+    fontSize: 26, bold: true, color: c.dark, fontFace: theme.headingFont, align: 'left',
     lineSpacingMultiple: 1.0,
   })
   slide.addShape('rect', {
-    x: 0.7, y: 1.15, w: 2.5, h: 0.04, fill: { color: c.primary },
+    x: titleX, y: titleY + 0.85, w: 2.5, h: 0.04, fill: { color: c.primary },
   })
   addPageNumber(slide, pageNumber, theme)
 
@@ -147,7 +154,7 @@ function textSlide(slide, spec, theme) {
     options: { bullet: spec.iconBullets ? { code: spec.iconBullets[index].charCodeAt(0) } : { code: 2022 }, fontSize: size, color: c.text, fontFace: theme.font, lineSpacingMultiple: 1.3, breakLine: true },
   }))
   slide.addText(rows, {
-    x: 0.8, y: 1.4, w: 11.2, h: 5.2, valign: 'top',
+    x: theme.layout.contentX, y: theme.layout.contentY, w: theme.layout.contentW, h: 5.2, valign: 'top',
   })
 }
 
@@ -161,7 +168,7 @@ function tableSlide(slide, spec, theme) {
     ...data.rows.map((row) => row.map((cell) => ({ text: cell, options: { fontSize, color: c.text, fontFace: theme.font } }))),
   ]
   slide.addTable(tableRows, {
-    x: 0.8, y: 1.4, w: 11.2,
+    x: theme.layout.contentX, y: theme.layout.contentY, w: theme.layout.contentW,
     border: { type: 'solid', pt: 1, color: 'CBD5E1' },
     rowH: 0.4,
     autoPage: true,
@@ -182,7 +189,7 @@ function chartSlide(slide, spec, theme) {
 
   const chartType = data.kind === 'pie' ? 'pie' : data.kind === 'line' ? 'line' : 'bar'
   const opts = {
-    x: 0.8, y: 1.4, w: 11.2, h: 5.2,
+    x: theme.layout.contentX, y: theme.layout.contentY, w: theme.layout.contentW, h: 5.2,
     chartColors: chartColors.slice(0, data.series.length),
     showLegend: data.kind === 'pie' || data.series.length > 1,
     legendPos: 'b',
@@ -212,29 +219,29 @@ function chartSlide(slide, spec, theme) {
 function comparisonSlide(slide, spec, theme) {
   const c = theme.colors
   const data = spec.comparison
-  const colW = 5.4
   const gap = 0.4
-  const leftX = 0.8
+  const colW = (theme.layout.contentW - gap) / 2
+  const leftX = theme.layout.contentX
   const rightX = leftX + colW + gap
 
   slide.addText(data.left_title, {
-    x: leftX, y: 1.4, w: colW, h: 0.6,
+    x: leftX, y: theme.layout.contentY, w: colW, h: 0.6,
     fontSize: 20, bold: true, color: c.dark, fontFace: theme.font, align: 'center',
     fill: { color: c.primary }, fontColor: 'FFFFFF',
   })
   slide.addText(
     (data.left_items || []).map((item) => ({ text: item, options: { bullet: true, fontSize: 16, color: c.text, lineSpacingMultiple: 1.3, breakLine: true } })),
-    { x: leftX, y: 2.1, w: colW, h: 4.3, valign: 'top' }
+    { x: leftX, y: theme.layout.contentY + 0.7, w: colW, h: 4.3, valign: 'top' }
   )
 
   slide.addText(data.right_title, {
-    x: rightX, y: 1.4, w: colW, h: 0.6,
+    x: rightX, y: theme.layout.contentY, w: colW, h: 0.6,
     fontSize: 20, bold: true, color: c.dark, fontFace: theme.font, align: 'center',
     fill: { color: c.accent }, fontColor: 'FFFFFF',
   })
   slide.addText(
     (data.right_items || []).map((item) => ({ text: item, options: { bullet: true, fontSize: 16, color: c.text, lineSpacingMultiple: 1.3, breakLine: true } })),
-    { x: rightX, y: 2.1, w: colW, h: 4.3, valign: 'top' }
+    { x: rightX, y: theme.layout.contentY + 0.7, w: colW, h: 4.3, valign: 'top' }
   )
 }
 

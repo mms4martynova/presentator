@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
-import { getThemes } from '../lib/pptxBuilder.js'
-
-const THEMES = getThemes()
+import ThemePicker from './ThemePicker.jsx'
 
 export default function RebuildDialog({ task, onClose, onRebuilt }) {
   const [title, setTitle] = useState(task.title)
-  const [templateId, setTemplateId] = useState(task.request.template_id ?? 'default')
+  const [theme, setTheme] = useState({
+    templateId: task.request.template_id ?? 'default',
+    templateVersionId: task.request.template_version_id ?? null,
+  })
   const [slidesCount, setSlidesCount] = useState(task.request.slides_count ?? 8)
   const [wantPdf, setWantPdf] = useState(task.want_pdf ?? false)
   const [orderedSlides, setOrderedSlides] = useState(() => task.outline || [])
@@ -34,8 +35,12 @@ export default function RebuildDialog({ task, onClose, onRebuilt }) {
     event.preventDefault()
     const changes = {}
     if (title.trim() !== task.title) changes.title = title.trim()
-    if (String(templateId) !== String(task.request.template_id ?? 'default')) {
-      changes.template_id = templateId
+    if (
+      theme.templateId !== (task.request.template_id ?? 'default')
+      || theme.templateVersionId !== (task.request.template_version_id ?? null)
+    ) {
+      changes.template_id = theme.templateId
+      changes.template_version_id = theme.templateVersionId
     }
     if (Number(slidesCount) !== task.request.slides_count) changes.slides_count = Number(slidesCount)
     if (wantPdf !== (task.want_pdf ?? false)) changes.want_pdf = wantPdf
@@ -73,23 +78,7 @@ export default function RebuildDialog({ task, onClose, onRebuilt }) {
 
           <div className="field">
             <span className="label">Оформление</span>
-            <div className="palette-grid palette-grid-compact">
-              {THEMES.map((t) => (
-                <button
-                  type="button"
-                  key={t.key}
-                  className={`palette-card ${templateId === t.key ? 'palette-card-active' : ''}`}
-                  onClick={() => setTemplateId(t.key)}
-                >
-                  <div className="palette-swatches">
-                    {t.swatch.map((color, i) => (
-                      <span key={i} className="palette-dot" style={{ background: `#${color}` }} />
-                    ))}
-                  </div>
-                  <span className="palette-name">{t.name}</span>
-                </button>
-              ))}
-            </div>
+            <ThemePicker value={theme} onChange={setTheme} />
           </div>
 
           {orderedSlides.length > 0 && (

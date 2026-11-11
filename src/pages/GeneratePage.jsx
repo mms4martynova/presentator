@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
-import { getThemes } from '../lib/pptxBuilder.js'
+import ThemePicker from '../components/ThemePicker.jsx'
 import { analyzeRequest, recommend, VIZ_LABELS } from '../lib/advisor.js'
 import { splitText } from '../lib/content.js'
 
 const FAST_MODE_MAX_SLIDES = 5
-const THEMES = getThemes()
 const INITIAL_FORM = {
   title: '',
   text: '',
@@ -14,7 +13,7 @@ const INITIAL_FORM = {
   language: 'ru',
   audience: '',
   tone: '',
-  templateId: 'default',
+  theme: { templateId: 'default', templateVersionId: null },
   wantPdf: false,
   fastMode: false,
   slidesJson: '',
@@ -111,7 +110,8 @@ export default function GeneratePage() {
         language: form.language,
         audience: form.audience.trim() || null,
         tone: form.tone.trim() || null,
-        template_id: form.templateId,
+        template_id: form.theme.templateId,
+        template_version_id: form.theme.templateVersionId,
         want_pdf: form.wantPdf,
         mode: 'sync',
       })
@@ -179,24 +179,7 @@ export default function GeneratePage() {
 
         <div className="field">
           <span className="label">Оформление</span>
-          <div className="palette-grid">
-            {THEMES.map((t) => (
-              <button
-                type="button"
-                key={t.key}
-                className={`palette-card ${form.templateId === t.key ? 'palette-card-active' : ''}`}
-                onClick={() => setForm((cur) => ({ ...cur, templateId: t.key }))}
-              >
-                <div className="palette-swatches">
-                  {t.swatch.map((color, i) => (
-                    <span key={i} className="palette-dot" style={{ background: `#${color}` }} />
-                  ))}
-                </div>
-                <span className="palette-name">{t.name}</span>
-                <span className="palette-desc">{t.desc}</span>
-              </button>
-            ))}
-          </div>
+          <ThemePicker value={form.theme} onChange={(theme) => setForm((cur) => ({ ...cur, theme }))} />
         </div>
 
         <div className="checks">

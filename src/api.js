@@ -1,7 +1,9 @@
 import { supabase } from './lib/supabase.js'
 import { buildOutline } from './lib/content.js'
-import { buildPptx } from './lib/pptxBuilder.js'
+import { buildPptx, getThemeByKey } from './lib/pptxBuilder.js'
 import { buildPdf } from './lib/pdfBuilder.js'
+import { saveBlob } from './lib/saveBlob.js'
+import { getVersionTheme } from './templatesApi.js'
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -149,12 +151,17 @@ function mapTask(row) {
   }
 }
 
+async function resolveTheme(req, visualAdvisor) {
+  if (req.template_version_id) return getVersionTheme(req.template_version_id)
+  return getThemeByKey(visualAdvisor ? 'corporate' : req.template_id || 'default')
+}
+
 async function generatePresentation(task) {
   const req = task.request
   const outline = buildOutline(req)
-  const themeKey = req.template_id || 'default'
+  const theme = await resolveTheme(req, outline.some((slide) => slide.visualAdvisor))
 
-  const pptxBlob = await buildPptx(task.title, outline, themeKey)
+  const pptxBlob = await buildPptx(task.title, outline, theme)
   const pptxFileName = `presentations/${task.id}/${Date.now()}.pptx`
   const { error: pptxError } = await supabase.storage
     .from('presentations')
@@ -170,7 +177,7 @@ async function generatePresentation(task) {
 
   if (req.want_pdf) {
     try {
-      const pdfBlob = await buildPdf(task.title, outline, themeKey)
+      const pdfBlob = await buildPdf(task.title, outline, theme)
       const pdfFileName = `presentations/${task.id}/${Date.now()}.pdf`
       const { error: pdfError } = await supabase.storage
         .from('presentations')
@@ -189,12 +196,7 @@ async function downloadBlob(key, filename) {
     .from('presentations')
     .download(key)
   if (error) throw new ApiError('Не удалось скачать файл', error.status || 500)
-  const url = URL.createObjectURL(data)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+  saveBlob(data, filename)
 }
 
 export async function downloadResult(taskId, taskPptxKey, title) {

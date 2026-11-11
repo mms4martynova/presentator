@@ -1,26 +1,7 @@
 import { jsPDF } from 'jspdf'
 
-const THEMES = {
-  default: {
-    colors: { primary: [37, 99, 235], dark: [15, 23, 42], light: [248, 250, 252], accent: [59, 130, 246], text: [51, 65, 85], muted: [100, 116, 139] },
-    font: 'DejaVuSans',
-  },
-  corporate: {
-    colors: { primary: [30, 58, 95], dark: [15, 23, 42], light: [241, 245, 249], accent: [43, 108, 176], text: [51, 65, 85], muted: [100, 116, 139] },
-    font: 'DejaVuSans',
-  },
-  dark: {
-    colors: { primary: [59, 130, 246], dark: [15, 23, 42], light: [30, 41, 59], accent: [96, 165, 250], text: [226, 232, 240], muted: [148, 163, 184] },
-    font: 'DejaVuSans',
-  },
-  warm: {
-    colors: { primary: [180, 83, 9], dark: [28, 25, 23], light: [254, 243, 199], accent: [217, 119, 6], text: [68, 64, 60], muted: [120, 113, 108] },
-    font: 'DejaVuSans',
-  },
-  forest: {
-    colors: { primary: [21, 128, 61], dark: [5, 46, 22], light: [236, 253, 245], accent: [34, 197, 94], text: [31, 41, 55], muted: [107, 114, 128] },
-    font: 'DejaVuSans',
-  },
+function hexToRgb(hex) {
+  return [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16))
 }
 
 const SLIDE_W = 297
@@ -327,9 +308,10 @@ async function loadFont(doc, url, fileName, style) {
   doc.addFont(fileName, 'DejaVuSans', style)
 }
 
-export async function buildPdf(title, slides, themeKey) {
+export async function buildPdf(title, slides, presentationTheme) {
   const visualAdvisor = slides.some((slide) => slide.visualAdvisor)
-  const theme = THEMES[visualAdvisor ? 'corporate' : themeKey] || THEMES.default
+  const colors = Object.fromEntries(Object.entries(presentationTheme.colors).map(([key, hex]) => [key, hexToRgb(hex)]))
+  const theme = { colors, font: 'DejaVuSans' }
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [SLIDE_W, SLIDE_H] })
   await loadFont(doc, '/fonts/DejaVuSans.ttf', 'DejaVuSans.ttf', 'normal')
   await loadFont(doc, '/fonts/DejaVuSans-Bold.ttf', 'DejaVuSans-Bold.ttf', 'bold')

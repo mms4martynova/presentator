@@ -836,22 +836,23 @@ h2 {
   line-height: 1.4;
 }
 
-.palette-grid-compact {
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 0;
 }
 
-.palette-grid-compact .palette-card {
-  padding: 10px;
-  gap: 6px;
-}
-
-.palette-grid-compact .palette-name {
+.meta-grid dt {
   font-size: 13px;
+  color: var(--neutral-500, #64748b);
+  margin-bottom: 4px;
 }
 
-.palette-grid-compact .palette-swatches {
-  height: 24px;
+.meta-grid dd {
+  margin: 0;
+  font-weight: 500;
+  color: var(--neutral-900, #0f172a);
 }
 
 .filter-bar {
@@ -908,10 +909,6 @@ h2 {
 }
 
 @media (max-width: 640px) {
-  .palette-grid-compact {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .filter-bar {
     flex-direction: column;
     align-items: stretch;

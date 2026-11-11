@@ -5,7 +5,8 @@ import { useAuth } from '../AuthContext.jsx'
 const NAV_ITEMS = [
   { to: '/', label: 'Новая презентация', end: true },
   { to: '/tasks', label: 'История' },
-  { to: '/templates', label: 'Шаблоны' },
+  { to: '/templates', label: 'Оформление' },
+  { to: '/corporate-templates', label: 'Корпоративные шаблоны' },
 ]
 
 export default function Layout() {
