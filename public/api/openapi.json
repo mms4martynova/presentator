@@ -1,0 +1,336 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Презентатор (Presentation Generator)",
+    "version": "1.0.0",
+    "description": "## Интеллектуальная система автоматического создания корпоративных презентаций\n\nСистема формирует многостраничные презентации в форматах **PPTX** и **PDF** по текстовому описанию или структурированным данным. Поддерживаются корпоративные шаблоны с версионированием, AI Visual Advisor, LLM-генерация структуры и MCP-интеграция.\n\n### Аутентификация\nВсе защищённые запросы требуют API-ключ в заголовке `X-API-Key`.\n\n### Режимы генерации\n- `async` — задача ставится в очередь, ответ `202 Accepted`.\n- `sync` — генерация до 5 слайдов, ответ `200 OK`."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Текущий опубликованный сайт или reverse proxy"
+    }
+  ],
+  "tags": [
+    { "name": "Аутентификация", "description": "Проверка API-ключа и получение профиля пользователя." },
+    { "name": "Задачи", "description": "Создание задач генерации презентаций, отслеживание статуса, история генераций, повторная сборка и скачивание результатов в PPTX/PDF." },
+    { "name": "Шаблоны", "description": "Управление корпоративными PPTX-шаблонами: загрузка, версионирование, откат, предпросмотр и удаление." },
+    { "name": "AI Visual Advisor", "description": "Анализ данных слайда и рекомендация оптимального способа визуализации." },
+    { "name": "MCP", "description": "MCP-сервер Streamable HTTP для интеграции с внешними ИИ-агентами." },
+    { "name": "Служебное", "description": "Проверка работоспособности сервиса." }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Служебное"],
+        "summary": "Проверка работоспособности",
+        "description": "Возвращает `status=ok`, если сервис запущен и отвечает на запросы.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Сервис работает",
+            "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "example": "ok" } } } } }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": ["Аутентификация"],
+        "summary": "Профиль пользователя",
+        "description": "Возвращает идентификатор и имя пользователя, которому принадлежит API-ключ.",
+        "operationId": "read_me",
+        "security": [{ "APIKeyHeader": [] }],
+        "responses": {
+          "200": { "description": "Профиль пользователя", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MeOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/advisor/recommend": {
+      "post": {
+        "tags": ["AI Visual Advisor"],
+        "summary": "Рекомендация типа визуализации для слайда",
+        "description": "Анализирует описание одного слайда и рекомендует тип визуализации. Если `type` задан явно, он имеет приоритет.",
+        "operationId": "recommend_visualization",
+        "security": [{ "APIKeyHeader": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SlideSpec" } } } },
+        "responses": {
+          "200": { "description": "Рекомендация", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecommendationOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/tasks": {
+      "post": {
+        "tags": ["Задачи"],
+        "summary": "Создать задачу генерации презентации",
+        "description": "Создаёт задачу на основе текстового описания или структурированных слайдов. В `async`-режиме задача ставится в очередь, а в `sync`-режиме выполняется сразу для презентаций до 5 слайдов.",
+        "operationId": "create_task",
+        "security": [{ "APIKeyHeader": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskCreate" } } } },
+        "responses": {
+          "200": { "description": "Задача завершена в синхронном режиме", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskOut" } } } },
+          "202": { "description": "Задача поставлена в очередь", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      },
+      "get": {
+        "tags": ["Задачи"],
+        "summary": "История генераций",
+        "description": "Возвращает до 50 последних задач текущего пользователя, отсортированных от новых к старым.",
+        "operationId": "list_tasks",
+        "security": [{ "APIKeyHeader": [] }],
+        "responses": {
+          "200": { "description": "Список задач", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TaskSummary" } } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}": {
+      "get": {
+        "tags": ["Задачи"],
+        "summary": "Статус задачи",
+        "description": "Возвращает статус, прогресс, структуру слайдов и наличие готовых файлов. Статусы: `queued`, `processing`, `completed`, `failed`.",
+        "operationId": "read_task",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TaskId" }],
+        "responses": {
+          "200": { "description": "Задача", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Задача не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/rebuild": {
+      "post": {
+        "tags": ["Задачи"],
+        "summary": "Повторная сборка с изменёнными параметрами",
+        "description": "Создаёт новую задачу на основе существующей. Не переданные поля наследуются от родительской задачи.",
+        "operationId": "rebuild",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TaskId" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskRebuild" } } } },
+        "responses": {
+          "202": { "description": "Новая задача поставлена в очередь", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TaskOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Родительская задача не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/result": {
+      "get": {
+        "tags": ["Задачи"],
+        "summary": "Скачать готовую презентацию (PPTX или PDF)",
+        "description": "Скачивает готовый файл. Параметр `format`: `pptx` или `pdf`; PDF доступен, если задача создана с `want_pdf=true`.",
+        "operationId": "download_result",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/TaskId" },
+          { "name": "format", "in": "query", "required": false, "description": "Формат файла", "schema": { "type": "string", "enum": ["pptx", "pdf"], "default": "pptx" } }
+        ],
+        "responses": {
+          "200": { "description": "Бинарный файл презентации", "content": { "application/vnd.openxmlformats-officedocument.presentationml.presentation": { "schema": { "type": "string", "format": "binary" } }, "application/pdf": { "schema": { "type": "string", "format": "binary" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Файл в выбранном формате ещё не готов", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/templates": {
+      "get": {
+        "tags": ["Шаблоны"],
+        "summary": "Список шаблонов",
+        "description": "Возвращает все шаблоны текущего пользователя с историей версий.",
+        "operationId": "list_templates",
+        "security": [{ "APIKeyHeader": [] }],
+        "responses": {
+          "200": { "description": "Список шаблонов", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TemplateOut" } } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "413": { "description": "Файл превышает 50 МБ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Файл не является PPTX или имеет неверную структуру", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "503": { "description": "Ошибка конвертации в PDF", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Шаблоны"],
+        "summary": "Загрузить PPTX-шаблон",
+        "description": "Создаёт новый шаблон и загружает его первую активную версию. Поддерживаются только PPTX-файлы размером до 50 МБ.",
+        "operationId": "upload_template",
+        "security": [{ "APIKeyHeader": [] }],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "$ref": "#/components/schemas/UploadTemplateForm" } } } },
+        "responses": {
+          "201": { "description": "Шаблон создан", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplateOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "413": { "description": "Файл превышает 50 МБ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Файл не является PPTX или имеет неверную структуру", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "503": { "description": "Ошибка конвертации в PDF", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}": {
+      "get": {
+        "tags": ["Шаблоны"],
+        "summary": "Информация о шаблоне и его версиях",
+        "operationId": "read_template",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateId" }],
+        "responses": {
+          "200": { "description": "Шаблон", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplateOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Шаблоны"],
+        "summary": "Удалить шаблон",
+        "description": "Удаляет шаблон, его версии и бинарные файлы. Задачи, ссылающиеся на версии, сохраняются.",
+        "operationId": "remove_template",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateId" }],
+        "responses": {
+          "204": { "description": "Шаблон удалён" },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/versions": {
+      "post": {
+        "tags": ["Шаблоны"],
+        "summary": "Загрузить новую версию шаблона",
+        "description": "Добавляет новую версию PPTX-файла. Новая версия автоматически становится активной, предыдущие деактивируются.",
+        "operationId": "upload_version",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateId" }],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "$ref": "#/components/schemas/UploadVersionForm" } } } },
+        "responses": {
+          "200": { "description": "Новая версия загружена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplateOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "413": { "description": "Файл превышает 50 МБ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Файл не является PPTX или имеет неверную структуру", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "503": { "description": "Ошибка конвертации в PDF", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/versions/{version_id}/activate": {
+      "post": {
+        "tags": ["Шаблоны"],
+        "summary": "Назначить активную версию (откат)",
+        "description": "Делает указанную версию активной и деактивирует остальные.",
+        "operationId": "activate_version",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateId" }, { "$ref": "#/components/parameters/VersionId" }],
+        "responses": {
+          "200": { "description": "Версия активирована", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TemplateOut" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Ошибка валидации входных данных", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/templates/{template_id}/versions/{version_id}/preview": {
+      "get": {
+        "tags": ["Шаблоны"],
+        "summary": "Предпросмотр версии в PDF",
+        "description": "Конвертирует указанную версию PPTX-шаблона в PDF и возвращает его для предпросмотра в браузере.",
+        "operationId": "preview_version",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/TemplateId" }, { "$ref": "#/components/parameters/VersionId" }],
+        "responses": {
+          "200": { "description": "PDF предпросмотра", "content": { "application/pdf": { "schema": { "type": "string", "format": "binary" } } } },
+          "401": { "description": "Неверный или отсутствующий API-ключ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "404": { "description": "Шаблон или версия не найдена", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "413": { "description": "Файл превышает 50 МБ", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "422": { "description": "Файл не является PPTX или имеет неверную структуру", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } },
+          "503": { "description": "Ошибка конвертации в PDF", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorOut" } } } }
+        }
+      }
+    },
+    "/api/v1/mcp": {
+      "post": {
+        "tags": ["MCP"],
+        "summary": "MCP-сервер (Streamable HTTP)",
+        "description": "Единая точка входа MCP-клиентов. Реализует JSON-RPC 2.0 поверх HTTP. Поддерживает `initialize`, `notifications/initialized`, `tools/list`, `tools/call`, `ping` и `logging/setLevel`. При `Accept: text/event-stream` отвечает SSE-стримом.",
+        "operationId": "mcp_endpoint",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [
+          { "name": "Accept", "in": "header", "required": false, "schema": { "type": "string", "example": "application/json, text/event-stream" } },
+          { "name": "Mcp-Session-Id", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JsonRpcRequest" } } } },
+        "responses": {
+          "200": { "description": "JSON-RPC результат или SSE-событие", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JsonRpcResponse" } }, "text/event-stream": { "schema": { "type": "string" } } } },
+          "202": { "description": "JSON-RPC notification принята" },
+          "204": { "description": "Инициализация подтверждена" },
+          "400": { "description": "Сессия отсутствует или истекла", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JsonRpcResponse" } } } }
+        }
+      },
+      "get": {
+        "tags": ["MCP"],
+        "summary": "MCP SSE-stream",
+        "description": "Открывает SSE-стрим для server-to-client уведомлений. Требует валидный `Mcp-Session-Id`.",
+        "operationId": "mcp_sse_stream",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "name": "Mcp-Session-Id", "in": "header", "required": false, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "SSE-стрим", "content": { "text/event-stream": { "schema": { "type": "string" } } } },
+          "400": { "description": "Сессия отсутствует или истекла", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JsonRpcResponse" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["MCP"],
+        "summary": "Завершить MCP-сессию",
+        "description": "Удаляет сессию по `Mcp-Session-Id`.",
+        "operationId": "mcp_close_session",
+        "security": [{ "APIKeyHeader": [] }],
+        "parameters": [{ "name": "Mcp-Session-Id", "in": "header", "required": false, "schema": { "type": "string" } }],
+        "responses": {
+          "204": { "description": "Сессия завершена" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "APIKeyHeader": { "type": "apiKey", "in": "header", "name": "X-API-Key", "description": "API-ключ пользователя" }
+    },
+    "parameters": {
+      "TaskId": { "name": "task_id", "in": "path", "required": true, "description": "Идентификатор задачи", "schema": { "type": "string" } },
+      "TemplateId": { "name": "template_id", "in": "path", "required": true, "description": "Идентификатор шаблона", "schema": { "type": "integer" } },
+      "VersionId": { "name": "version_id", "in": "path", "required": true, "description": "Идентификатор версии", "schema": { "type": "integer" } }
+    },
+    "schemas": {
+      "TableData": { "type": "object", "required": ["headers"], "properties": { "headers": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "string" } }, "rows": { "type": "array", "maxItems": 50, "items": { "type": "array", "items": { "type": "string" } }, "default": [] } } },
+      "ChartSeries": { "type": "object", "required": ["name", "values"], "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 100 }, "values": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "number" } } } },
+      "ChartData": { "type": "object", "required": ["categories", "series"], "properties": { "kind": { "anyOf": [{ "type": "string", "enum": ["column", "line", "pie"] }, { "type": "null" }], "default": null }, "categories": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "string" } }, "series": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/components/schemas/ChartSeries" } } } },
+      "ComparisonData": { "type": "object", "required": ["left_title", "right_title"], "properties": { "left_title": { "type": "string", "minLength": 1, "maxLength": 100 }, "left_items": { "type": "array", "maxItems": 15, "items": { "type": "string" }, "default": [] }, "right_title": { "type": "string", "minLength": 1, "maxLength": 100 }, "right_items": { "type": "array", "maxItems": 15, "items": { "type": "string" }, "default": [] } } },
+      "ImageData": { "type": "object", "required": ["base64"], "properties": { "base64": { "type": "string", "minLength": 1, "maxLength": 4000000, "description": "Изображение в base64" } } },
+      "SlideSpec": { "type": "object", "required": ["title"], "properties": { "type": { "anyOf": [{ "type": "string", "enum": ["text", "table", "chart", "comparison", "image"] }, { "type": "null" }], "default": null }, "title": { "type": "string", "minLength": 1, "maxLength": 200 }, "bullets": { "type": "array", "maxItems": 30, "items": { "type": "string" }, "default": [] }, "table": { "anyOf": [{ "$ref": "#/components/schemas/TableData" }, { "type": "null" }], "default": null }, "chart": { "anyOf": [{ "$ref": "#/components/schemas/ChartData" }, { "type": "null" }], "default": null }, "comparison": { "anyOf": [{ "$ref": "#/components/schemas/ComparisonData" }, { "type": "null" }], "default": null }, "image": { "anyOf": [{ "$ref": "#/components/schemas/ImageData" }, { "type": "null" }], "default": null }, "reasoning": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null } } },
+      "TaskCreate": { "type": "object", "required": ["title"], "properties": { "title": { "type": "string", "minLength": 1, "maxLength": 200 }, "text": { "anyOf": [{ "type": "string", "maxLength": 50000 }, { "type": "null" }], "default": null }, "slides": { "anyOf": [{ "type": "array", "maxItems": 40, "items": { "$ref": "#/components/schemas/SlideSpec" } }, { "type": "null" }], "default": null }, "slides_count": { "type": "integer", "minimum": 1, "maximum": 40, "default": 8 }, "language": { "type": "string", "enum": ["ru", "en"], "default": "ru" }, "audience": { "anyOf": [{ "type": "string", "maxLength": 200 }, { "type": "null" }], "default": null }, "tone": { "anyOf": [{ "type": "string", "maxLength": 200 }, { "type": "null" }], "default": null }, "template_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }], "default": null }, "want_pdf": { "type": "boolean", "default": false }, "mode": { "type": "string", "enum": ["async", "sync"], "default": "async" } } },
+      "TaskRebuild": { "type": "object", "properties": { "title": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 200 }, { "type": "null" }], "default": null }, "text": { "anyOf": [{ "type": "string", "maxLength": 50000 }, { "type": "null" }], "default": null }, "slides": { "anyOf": [{ "type": "array", "maxItems": 40, "items": { "$ref": "#/components/schemas/SlideSpec" } }, { "type": "null" }], "default": null }, "slides_count": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 40 }, { "type": "null" }], "default": null }, "language": { "anyOf": [{ "type": "string", "enum": ["ru", "en"] }, { "type": "null" }], "default": null }, "audience": { "anyOf": [{ "type": "string", "maxLength": 200 }, { "type": "null" }], "default": null }, "tone": { "anyOf": [{ "type": "string", "maxLength": 200 }, { "type": "null" }], "default": null }, "template_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }], "default": null }, "want_pdf": { "anyOf": [{ "type": "boolean" }, { "type": "null" }], "default": null } } },
+      "TaskOut": { "type": "object", "required": ["id", "title", "status", "progress", "error", "parent_task_id", "template_version_id", "want_pdf", "request", "outline", "has_pptx", "has_pdf", "created_at", "updated_at"], "properties": { "id": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "string" }, "progress": { "type": "integer" }, "error": { "anyOf": [{ "type": "string" }, { "type": "null" }] }, "parent_task_id": { "anyOf": [{ "type": "string" }, { "type": "null" }] }, "template_version_id": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }, "want_pdf": { "type": "boolean" }, "request": { "type": "object", "additionalProperties": true }, "outline": { "anyOf": [{ "type": "array", "items": { "$ref": "#/components/schemas/SlideSpec" } }, { "type": "null" }] }, "has_pptx": { "type": "boolean" }, "has_pdf": { "type": "boolean" }, "created_at": { "type": "string", "format": "date-time" }, "updated_at": { "type": "string", "format": "date-time" } } },
+      "TaskSummary": { "type": "object", "required": ["id", "title", "status", "progress", "want_pdf", "has_pptx", "has_pdf", "created_at"], "properties": { "id": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "string" }, "progress": { "type": "integer" }, "want_pdf": { "type": "boolean" }, "has_pptx": { "type": "boolean" }, "has_pdf": { "type": "boolean" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "TemplateVersionOut": { "type": "object", "required": ["id", "version", "original_filename", "is_active", "created_at"], "properties": { "id": { "type": "integer" }, "version": { "type": "integer" }, "original_filename": { "type": "string" }, "is_active": { "type": "boolean" }, "created_at": { "type": "string", "format": "date-time" } } },
+      "TemplateOut": { "type": "object", "required": ["id", "name", "created_at", "versions"], "properties": { "id": { "type": "integer" }, "name": { "type": "string" }, "created_at": { "type": "string", "format": "date-time" }, "versions": { "type": "array", "items": { "$ref": "#/components/schemas/TemplateVersionOut" } } } },
+      "RecommendationOut": { "type": "object", "required": ["visualization", "slide_type", "reasoning"], "properties": { "visualization": { "type": "string", "enum": ["text", "table", "line_chart", "column_chart", "pie_chart", "comparison", "image"] }, "slide_type": { "type": "string", "enum": ["text", "table", "chart", "comparison", "image"] }, "reasoning": { "type": "string" } } },
+      "MeOut": { "type": "object", "required": ["id", "name"], "properties": { "id": { "type": "integer" }, "name": { "type": "string" } } },
+      "ErrorOut": { "type": "object", "required": ["detail"], "properties": { "detail": { "type": "string" } } },
+      "UploadTemplateForm": { "type": "object", "required": ["name", "file"], "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Название шаблона" }, "file": { "type": "string", "format": "binary", "description": "PPTX-файл шаблона" } } },
+      "UploadVersionForm": { "type": "object", "required": ["file"], "properties": { "file": { "type": "string", "format": "binary", "description": "Новый PPTX-файл" } } },
+      "JsonRpcRequest": { "type": "object", "required": ["method"], "properties": { "jsonrpc": { "type": "string", "default": "2.0" }, "id": {}, "method": { "type": "string", "example": "tools/list" }, "params": { "type": "object", "additionalProperties": true, "default": {} } }, "additionalProperties": true },
+      "JsonRpcResponse": { "type": "object", "properties": { "jsonrpc": { "type": "string", "example": "2.0" }, "id": {}, "result": {}, "error": { "type": "object", "properties": { "code": { "type": "integer" }, "message": { "type": "string" } }, "required": ["code", "message"] } }, "additionalProperties": true }
+    }
+  }
+}
