@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Презентатор — Swagger UI</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <link rel="stylesheet" href="/api/vendor/swagger-ui.css" />
     <style>
       html { box-sizing: border-box; }
       *, *::before, *::after { box-sizing: inherit; }
@@ -15,8 +15,8 @@
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" crossorigin></script>
+    <script src="/api/vendor/swagger-ui-bundle.js" crossorigin></script>
+    <script src="/api/vendor/swagger-ui-standalone-preset.js" crossorigin></script>
     <script>
       window.onload = function () {
         window.ui = SwaggerUIBundle({
