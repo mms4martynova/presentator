@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import TemplateFormDialog from '../components/TemplateFormDialog.jsx'
 import TemplateVersionDialog from '../components/TemplateVersionDialog.jsx'
 import { useAuth } from '../AuthContext.jsx'
 import { formatDate } from '../labels.js'
-import { downloadTemplateFile, getTemplate, setCurrentVersion } from '../templatesApi.js'
+import { deleteTemplate, downloadTemplateFile, getTemplate, setCurrentVersion } from '../templatesApi.js'
 
 export default function CorporateTemplatePage() {
   const { templateId } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [template, setTemplate] = useState(null)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [editing, setEditing] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(() => {
     getTemplate(templateId)
@@ -41,6 +44,18 @@ export default function CorporateTemplatePage() {
   const isOwner = template.created_by === user?.id
   const { current } = template
   const colors = current?.theme?.colors
+
+  const remove = async () => {
+    setDeleting(true)
+    try {
+      await deleteTemplate(template)
+      navigate('/corporate-templates')
+    } catch (err) {
+      setActionError(err.message)
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
 
   const rollback = async (version) => {
     setActionError('')
@@ -122,9 +137,26 @@ export default function CorporateTemplatePage() {
 
         {isOwner && (
           <div className="form-actions">
-            <button type="button" className="btn btn-primary" onClick={() => setUploading(true)}>
-              Загрузить новую версию
-            </button>
+            {confirmDelete ? (
+              <>
+                <span className="muted small">Удалить шаблон и все его версии?</span>
+                <button type="button" className="btn btn-danger" disabled={deleting} onClick={remove}>
+                  {deleting ? 'Удаляем…' : 'Удалить'}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>
+                  Отмена
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn btn-primary" onClick={() => setUploading(true)}>
+                  Загрузить новую версию
+                </button>
+                <button type="button" className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
+                  Удалить шаблон
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

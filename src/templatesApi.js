@@ -134,6 +134,19 @@ export async function setCurrentVersion(templateId, versionNumber) {
   return getTemplate(templateId)
 }
 
+export async function deleteTemplate(template) {
+  const fileKeys = template.versions.map((version) => version.file_key).filter(Boolean)
+  if (fileKeys.length) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove(fileKeys)
+    if (storageError) console.error('template file cleanup failed', storageError)
+  }
+  const { error } = await supabase.from('templates').delete().eq('id', template.id)
+  if (error) {
+    console.error('deleteTemplate failed', error)
+    throw new Error('Не удалось удалить шаблон')
+  }
+}
+
 export async function downloadTemplateFile(version, templateName) {
   const { data, error } = await supabase.storage.from(BUCKET).download(version.file_key)
   if (error) {
