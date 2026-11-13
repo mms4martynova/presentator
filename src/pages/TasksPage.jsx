@@ -16,6 +16,8 @@ export default function TasksPage() {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [deleting, setDeleting] = useState(null)
 
   const load = useCallback(() => {
     api
@@ -45,6 +47,19 @@ export default function TasksPage() {
       return true
     })
   }, [tasks, filter, search])
+
+  const handleDelete = async (task) => {
+    setDeleting(task.id)
+    setConfirmDelete(null)
+    try {
+      await api.deleteTask(task.id, task._pptx_key, task._pdf_key)
+      setTasks((prev) => prev.filter((t) => t.id !== task.id))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   const slideCount = (task) => (task.outline ? task.outline.length : 0)
 
@@ -95,7 +110,7 @@ export default function TasksPage() {
       {filtered?.length > 0 && (
         <ul className="list">
           {filtered.map((task) => (
-            <li key={task.id}>
+            <li key={task.id} className="list-item-wrap">
               <Link to={`/tasks/${task.id}`} className="card list-item">
                 <div className="list-item-main">
                   <strong className="list-title">{task.title}</strong>
@@ -114,6 +129,37 @@ export default function TasksPage() {
                   <StatusBadge status={task.status} />
                 </div>
               </Link>
+
+              {confirmDelete === task.id ? (
+                <div className="delete-confirm">
+                  <span className="muted small">Удалить презентацию?</span>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    disabled={deleting === task.id}
+                    onClick={() => handleDelete(task)}
+                  >
+                    {deleting === task.id ? 'Удаляем…' : 'Удалить'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setConfirmDelete(null)}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-delete-task"
+                  aria-label="Удалить"
+                  disabled={isActiveStatus(task.status)}
+                  onClick={() => setConfirmDelete(task.id)}
+                >
+                  ✕
+                </button>
+              )}
             </li>
           ))}
         </ul>

@@ -98,6 +98,15 @@ export const api = {
     return await this.getTask(task.id)
   },
 
+  async deleteTask(taskId, pptxKey, pdfKey) {
+    const paths = [pptxKey, pdfKey].filter(Boolean)
+    if (paths.length) {
+      await supabase.storage.from('presentations').remove(paths)
+    }
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId)
+    if (error) throw new ApiError(formatError(error), 500)
+  },
+
   async rebuildTask(taskId, changes) {
     const parent = await this.getTask(taskId)
     const newRequest = { ...parent.request, ...changes }

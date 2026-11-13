@@ -1034,3 +1034,62 @@ h2 {
   color: var(--neutral-600);
   cursor: help;
 }
+
+/* Task list delete */
+.list-item-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.btn-delete-task {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--neutral-400, #94a3b8);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  z-index: 2;
+}
+
+.list-item-wrap:hover .btn-delete-task {
+  opacity: 1;
+}
+
+.btn-delete-task:hover:not(:disabled) {
+  background: var(--error-50);
+  color: var(--error-600);
+}
+
+.btn-delete-task:disabled {
+  opacity: 0;
+  cursor: not-allowed;
+}
+
+.delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--error-50);
+  border: 1px solid #fecaca;
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  animation: fade-in 0.15s ease both;
+}
+
+.btn-sm {
+  font-size: 13px;
+  padding: 5px 12px;
+}
